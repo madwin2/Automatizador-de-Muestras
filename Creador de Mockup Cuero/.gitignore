@@ -1,0 +1,18 @@
+# Texturas grandes
+*.png
+!icon.png
+!preview.png
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entorno virtual
+venv/
+env/
+ENV/
+
+# Archivos temporales
+*.tmp
+temp_*
