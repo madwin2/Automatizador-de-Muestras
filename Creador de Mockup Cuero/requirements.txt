@@ -6,3 +6,5 @@ scikit-image==0.21.0
 python-dotenv==1.0.0
 openai>=1.0.0 
 gunicorn
+requests
+Flask
