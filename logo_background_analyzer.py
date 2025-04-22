@@ -1,365 +1,107 @@
 import cv2
 import numpy as np
-from typing import Tuple, Dict, Any, List
-import logging
+import requests
+import os
 
-class LogoBackgroundAnalyzer:
-    def __init__(self):
-        """
-        Inicializa el analizador de fondos de logos.
-        """
-        # Configurar logging
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        
-        # Umbrales y parámetros
-        self.BRIGHTNESS_THRESHOLD = 127
-        self.CONTRAST_THRESHOLD = 50
-        self.NOISE_THRESHOLD = 30
-        self.EDGE_THRESHOLD = 100
-        self.MIN_CONTOUR_AREA = 100
+def analyze_and_process_logo(input_path, api_key):
+    # Cargar la imagen
+    image = cv2.imread(input_path)
 
-    def analyze_background(self, image: np.ndarray) -> Dict[str, Any]:
-        """
-        Analiza el fondo de un logo y devuelve un diccionario con los resultados.
-        
-        Args:
-            image: Imagen del logo en formato numpy array
-            
-        Returns:
-            Dict con los resultados del análisis incluyendo:
-            - background_type: 'solid', 'transparent', 'complex'
-            - background_color: [R,G,B] para fondos sólidos
-            - transparency: porcentaje de transparencia
-            - complexity_score: puntuación de complejidad
-            - recommendations: lista de recomendaciones
-        """
+    # Convertir a escala de grises
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Calcular la desviación estándar y complejidad de textura
+    std_dev = float(np.std(gray))
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+    texture_complexity = float(np.std(laplacian))
+
+    # Verificar color del borde
+    borders = np.concatenate([
+        image[0, :, :], image[-1, :, :], image[:, 0, :], image[:, -1, :]
+    ])
+    mean_border_color = np.mean(borders, axis=0)
+    border_is_white = np.all(mean_border_color > 220)
+
+    # Verificar si hay elementos tocando los bordes
+    _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    touching_borders = sum(
+        1 for c in contours 
+        if cv2.boundingRect(c)[0] == 0 or cv2.boundingRect(c)[1] == 0 or 
+           cv2.boundingRect(c)[0] + cv2.boundingRect(c)[2] >= image.shape[1] or
+           cv2.boundingRect(c)[1] + cv2.boundingRect(c)[3] >= image.shape[0]
+    )
+
+    # Nuevo criterio más robusto
+    is_complex_background = int(
+        (std_dev > 35 and texture_complexity > 8) or not border_is_white or touching_borders > 0
+    )
+
+    preanalysis_result = {
+        'is_complex_background': is_complex_background,
+        'std_dev': round(std_dev, 2),
+        'texture_complexity': round(texture_complexity, 2),
+        'border_is_white': int(border_is_white),
+        'touching_borders': touching_borders
+    }
+
+    # Si el fondo es complejo, usar PhotoRoom
+    if is_complex_background == 1:
         try:
-            # Convertir a RGBA si es necesario
-            if len(image.shape) == 2:
-                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGBA)
-            elif image.shape[2] == 3:
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGBA)
-            
-            # Extraer canal alfa si existe
-            has_alpha = image.shape[2] == 4
-            alpha = image[:,:,3] if has_alpha else None
-            
-            # Analizar transparencia
-            transparency_score = self._analyze_transparency(alpha) if has_alpha else 0
-            
-            # Analizar color de fondo
-            background_color = self._detect_background_color(image)
-            
-            # Analizar complejidad
-            complexity_score = self._analyze_complexity(image)
-            
-            # Determinar tipo de fondo
-            background_type = self._determine_background_type(
-                transparency_score, 
-                complexity_score,
-                background_color
-            )
-            
-            # Generar recomendaciones
-            recommendations = self._generate_recommendations(
-                background_type,
-                transparency_score,
-                complexity_score,
-                background_color
-            )
-            
-            return {
-                'background_type': background_type,
-                'background_color': background_color,
-                'transparency': transparency_score,
-                'complexity_score': complexity_score,
-                'recommendations': recommendations
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error al analizar el fondo: {str(e)}")
-            raise
-
-    def _analyze_transparency(self, alpha: np.ndarray) -> float:
-        """
-        Analiza el canal alfa para determinar el nivel de transparencia.
-        
-        Args:
-            alpha: Canal alfa de la imagen
-            
-        Returns:
-            float: Porcentaje de transparencia (0-100)
-        """
-        if alpha is None:
-            return 0.0
-            
-        total_pixels = alpha.size
-        transparent_pixels = np.sum(alpha < 255)
-        return (transparent_pixels / total_pixels) * 100
-
-    def _detect_background_color(self, image: np.ndarray) -> List[int]:
-        """
-        Detecta el color de fondo predominante.
-        
-        Args:
-            image: Imagen en formato RGBA
-            
-        Returns:
-            List[int]: Color RGB del fondo
-        """
-        # Convertir a RGB si es RGBA
-        if image.shape[2] == 4:
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-        else:
-            image_rgb = image[:,:,:3]
-        
-        # Aplanar la imagen y contar colores únicos
-        pixels = image_rgb.reshape(-1, 3)
-        unique_colors, counts = np.unique(pixels, axis=0, return_counts=True)
-        
-        # Encontrar el color más frecuente
-        background_color = unique_colors[np.argmax(counts)]
-        return background_color.tolist()
-
-    def _analyze_complexity(self, image: np.ndarray) -> float:
-        """
-        Analiza la complejidad del fondo basado en varios factores.
-        
-        Args:
-            image: Imagen en formato RGBA
-            
-        Returns:
-            float: Puntuación de complejidad (0-100)
-        """
-        # Convertir a escala de grises
-        if image.shape[2] == 4:
-            gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
-        else:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Calcular bordes
-        edges = cv2.Canny(gray, 100, 200)
-        edge_density = np.sum(edges > 0) / edges.size
-        
-        # Calcular variación de color
-        if image.shape[2] == 4:
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-        else:
-            image_rgb = image[:,:,:3]
-        color_std = np.std(image_rgb)
-        
-        # Calcular textura usando LBP o varianza local
-        texture_score = np.std(cv2.GaussianBlur(gray, (7,7), 0))
-        
-        # Combinar métricas
-        complexity = (
-            0.4 * edge_density * 100 +
-            0.3 * min(color_std, 100) +
-            0.3 * min(texture_score, 100)
-        )
-        
-        return min(complexity, 100)
-
-    def _determine_background_type(
-        self,
-        transparency_score: float,
-        complexity_score: float,
-        background_color: List[int]
-    ) -> str:
-        """
-        Determina el tipo de fondo basado en los análisis previos.
-        
-        Args:
-            transparency_score: Porcentaje de transparencia
-            complexity_score: Puntuación de complejidad
-            background_color: Color RGB del fondo
-            
-        Returns:
-            str: Tipo de fondo ('solid', 'transparent', o 'complex')
-        """
-        if transparency_score > 50:
-            return 'transparent'
-        elif complexity_score > 60:
-            return 'complex'
-        else:
-            return 'solid'
-
-    def _generate_recommendations(
-        self,
-        background_type: str,
-        transparency_score: float,
-        complexity_score: float,
-        background_color: List[int]
-    ) -> List[str]:
-        """
-        Genera recomendaciones basadas en el análisis del fondo.
-        
-        Args:
-            background_type: Tipo de fondo detectado
-            transparency_score: Porcentaje de transparencia
-            complexity_score: Puntuación de complejidad
-            background_color: Color RGB del fondo
-            
-        Returns:
-            List[str]: Lista de recomendaciones
-        """
-        recommendations = []
-        
-        if background_type == 'transparent':
-            if transparency_score < 90:
-                recommendations.append(
-                    "Considerar aumentar la transparencia del fondo para mejor integración"
+            print(f"Procesando imagen con PhotoRoom: {input_path}")
+            with open(input_path, 'rb') as image_file:
+                files = {'image_file': ('image.jpg', image_file, 'image/jpeg')}
+                headers = {'x-api-key': '2ee6de145c9f881084268fbb7319ef4096f82e7a'}
+                response = requests.post(
+                    'https://sdk.photoroom.com/v1/segment',
+                    files=files,
+                    headers=headers
                 )
-            recommendations.append(
-                "El fondo transparente es ideal para superposición en diferentes superficies"
-            )
-            
-        elif background_type == 'complex':
-            recommendations.append(
-                "Considerar simplificar el fondo para mejor legibilidad"
-            )
-            if complexity_score > 80:
-                recommendations.append(
-                    "El fondo muy complejo puede dificultar la visibilidad del logo"
-                )
-                
-        else:  # solid
-            brightness = sum(background_color) / 3
-            if brightness > 240:
-                recommendations.append(
-                    "El fondo muy claro puede dificultar la visibilidad en superficies claras"
-                )
-            elif brightness < 15:
-                recommendations.append(
-                    "El fondo muy oscuro puede dificultar la visibilidad en superficies oscuras"
-                )
-                
-        return recommendations
 
-    def get_background_mask(self, image: np.ndarray) -> np.ndarray:
-        """
-        Genera una máscara del fondo del logo.
-        
-        Args:
-            image: Imagen en formato RGBA o RGB
-            
-        Returns:
-            np.ndarray: Máscara binaria donde 255 representa el fondo
-        """
-        try:
-            # Convertir a escala de grises
-            if len(image.shape) == 2:
-                gray = image
-            elif image.shape[2] == 4:
-                gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+            if response.status_code != 200:
+                print(f"Error en PhotoRoom API: {response.status_code}")
+                print(f"Respuesta: {response.text}")
+                return input_path, preanalysis_result
+
+            result_image = cv2.imdecode(np.frombuffer(response.content, np.uint8), cv2.IMREAD_UNCHANGED)
+            if result_image is None or result_image.shape[2] != 4:
+                print("Error: No se pudo decodificar la imagen o falta canal alpha")
+                return input_path, preanalysis_result
+
+            height, width = result_image.shape[:2]
+            alpha_mask = result_image[:, :, 3] / 255.0
+            alpha_mask = np.stack([alpha_mask] * 3, axis=-1)
+            foreground = result_image[:, :, :3]
+
+            # Determinar si el logo es blanco (muy claro)
+            gray_foreground = cv2.cvtColor(foreground, cv2.COLOR_BGR2GRAY)
+            mean_intensity = np.mean(gray_foreground)
+            print(f"Intensidad media del logo: {mean_intensity}")
+
+            # Siempre aplicar fondo blanco, excepto si el logo es muy claro (blanco)
+            if mean_intensity > 235:
+                bg_color = [0, 0, 0]
+                print("⚠️ Logo blanco detectado. Fondo negro aplicado para visibilidad.")
             else:
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # Aplicar umbral adaptativo
-            thresh = cv2.adaptiveThreshold(
-                gray,
-                255,
-                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                cv2.THRESH_BINARY_INV,
-                11,
-                2
-            )
-            
-            # Encontrar contornos
-            contours, _ = cv2.findContours(
-                thresh,
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_SIMPLE
-            )
-            
-            # Crear máscara
-            mask = np.zeros_like(gray)
-            
-            # Dibujar contornos grandes
-            for cnt in contours:
-                if cv2.contourArea(cnt) > self.MIN_CONTOUR_AREA:
-                    cv2.drawContours(mask, [cnt], -1, 255, -1)
-            
-            return mask
-            
-        except Exception as e:
-            self.logger.error(f"Error al generar máscara de fondo: {str(e)}")
-            raise
+                bg_color = [255, 255, 255]
+                print("Fondo blanco aplicado.")
 
-    def suggest_background_removal(self, image: np.ndarray) -> bool:
-        """
-        Sugiere si el fondo debe ser removido basado en el análisis.
-        
-        Args:
-            image: Imagen en formato RGBA o RGB
-            
-        Returns:
-            bool: True si se recomienda remover el fondo
-        """
-        try:
-            analysis = self.analyze_background(image)
-            
-            # Criterios para sugerir remoción
-            should_remove = (
-                analysis['background_type'] == 'complex' or
-                (analysis['background_type'] == 'solid' and
-                 analysis['complexity_score'] > 30) or
-                (analysis['transparency'] > 0 and
-                 analysis['transparency'] < 90)
-            )
-            
-            return should_remove
-            
-        except Exception as e:
-            self.logger.error(
-                f"Error al sugerir remoción de fondo: {str(e)}"
-            )
-            raise
 
-    def get_background_stats(self, image: np.ndarray) -> Dict[str, float]:
-        """
-        Obtiene estadísticas detalladas del fondo.
-        
-        Args:
-            image: Imagen en formato RGBA o RGB
-            
-        Returns:
-            Dict con estadísticas del fondo incluyendo:
-            - uniformity: uniformidad del color/textura
-            - brightness: brillo promedio
-            - contrast: contraste
-            - noise: nivel de ruido
-        """
-        try:
-            # Convertir a escala de grises
-            if len(image.shape) == 2:
-                gray = image
-            elif image.shape[2] == 4:
-                gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
-            else:
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # Calcular estadísticas
-            mean_brightness = np.mean(gray)
-            std_brightness = np.std(gray)
-            
-            # Calcular ruido usando la desviación estándar local
-            noise = cv2.GaussianBlur(gray, (7,7), 0)
-            noise = np.std(gray - noise)
-            
-            # Calcular uniformidad usando histograma
-            hist = cv2.calcHist([gray], [0], None, [256], [0,256])
-            hist = hist.flatten() / hist.sum()
-            uniformity = np.sum(hist ** 2)
-            
-            return {
-                'uniformity': float(uniformity * 100),
-                'brightness': float(mean_brightness),
-                'contrast': float(std_brightness),
-                'noise': float(noise)
-            }
-            
+            custom_background = np.ones((height, width, 3), dtype=np.uint8)
+            custom_background[:] = bg_color
+
+            result_image = (foreground * alpha_mask + custom_background * (1 - alpha_mask)).astype(np.uint8)
+
+            # Guardar resultado
+            processed_path = os.path.join('temp', os.path.basename(input_path))
+            cv2.imwrite(processed_path, result_image)
+            print(f"Imagen procesada guardada en: {processed_path}")
+
+            return processed_path, preanalysis_result
+
         except Exception as e:
-            self.logger.error(f"Error al obtener estadísticas: {str(e)}")
-            raise
+            print(f"Error procesando con PhotoRoom: {str(e)}")
+            return input_path, preanalysis_result
+
+    # Si el fondo no es complejo, devolver imagen original
+    return input_path, preanalysis_result
