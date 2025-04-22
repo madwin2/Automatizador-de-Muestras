@@ -1,17 +1,18 @@
 # Texturas para Mockups
 
-Este directorio contiene las texturas necesarias para generar los mockups:
+Este directorio debe contener las texturas necesarias para generar los mockups. Debido al tamaño de los archivos, las texturas no están incluidas directamente en el repositorio.
 
-## Texturas incluidas:
+## Archivos necesarios:
 
-1. `leather_texture.png`: Textura base de cuero para el efecto de grabado
-2. `wood_texture.png`: Textura base de madera para el efecto de quemado
-3. `burned_wood_texture.png`: Textura de madera quemada para los efectos
+1. `texture_path.png` (2.1MB) - Textura base de madera
+2. `burned_texture_path.png` (2.1MB) - Textura de madera quemada
+3. `cuero2.png` (2.1MB) - Textura de cuero
 
-## Uso:
+## Instrucciones:
 
-- Para el script `cuero.py`, usar `leather_texture.png`
-- Para el script `madera.py`, usar `wood_texture.png` y `burned_wood_texture.png`
+1. Descarga las texturas desde [este enlace](#) (por favor, contacta al mantenedor del repositorio para obtener acceso a las texturas)
+2. Coloca los archivos en la carpeta `textures` con los nombres exactos mencionados arriba
+3. Asegúrate de que los archivos tengan los tamaños correctos y sean archivos PNG válidos
 
 ## Notas importantes:
 
@@ -20,6 +21,10 @@ Este directorio contiene las texturas necesarias para generar los mockups:
 - Las texturas deben tener un contraste adecuado para mejores resultados
 - Para resultados óptimos, usar texturas sin patrones repetitivos muy evidentes
 
-## Reemplazar texturas:
+## Texturas alternativas:
 
-Puedes reemplazar estas texturas con las tuyas propias, manteniendo los mismos nombres de archivo para compatibilidad con los scripts.
+Si deseas usar tus propias texturas, asegúrate de:
+1. Mantener los mismos nombres de archivo
+2. Usar imágenes de calidad similar o superior
+3. Mantener una resolución mínima de 2000x2000 píxeles
+4. Usar el formato PNG
