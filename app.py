@@ -14,7 +14,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max-limit
 
 # API key de OpenAI
-api_key = "YOUR_API_KEY_HERE"
+api_key = "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"
 
 # Asegurar que existan las carpetas necesarias
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
