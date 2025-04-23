@@ -406,6 +406,16 @@ class LogoSizeAnalyzer:
                     # Procesar variante de tamaño
                     resultado = self._analyze_size_variant(img.copy(), tamaño)
                     resultados[nombre] = resultado
+
+                    # Validación segura de imagen
+                    debug_img = resultado.get('debug_image')
+                if isinstance(debug_img, np.ndarray):
+                        imagenes[nombre] = debug_img
+                    else:
+                    print(f"⚠️ No se generó imagen para tamaño {nombre}")
+                except Exception as e:
+                    print(f"⚠️ Error procesando tamaño {nombre}: {str(e)}")
+                    continue
                     
                     # Verificar y preparar la imagen
                     if not isinstance(resultado['debug_image'], np.ndarray):
@@ -432,7 +442,11 @@ class LogoSizeAnalyzer:
                     continue
             
             if not resultados:
-                raise ValueError("No se pudo procesar ningún tamaño del logo")
+                return {
+                    "respuesta": "No se pudo procesar ningún tamaño del logo.",
+                    "imagenes": {},
+                    "resultados": {}
+                }
             
             # Formatear respuesta detallada
             respuesta = "Tamaño Original\n\n"
@@ -440,7 +454,9 @@ class LogoSizeAnalyzer:
             respuesta += f"Alto: {round(resultados['solicitado']['height_mm'])}mm\n\n\n"
 
             respuesta += "Análisis de Texto\n\n"
-            if resultados['solicitado']['text_heights_mm']:
+            if 'text_heights_mm' in resultados['solicitado']:
+                heights = resultados['solicitado']['text_heights_mm']
+                if heights:
                 min_height = round(min(resultados['solicitado']['text_heights_mm']))
                 avg_height = round(sum(resultados['solicitado']['text_heights_mm'])/len(resultados['solicitado']['text_heights_mm']))
                 textos_pequeños = [h for h in resultados['solicitado']['text_heights_mm'] if h < 2.0]
