@@ -156,85 +156,88 @@ def processed_file(filename):
 
 @app.route('/analyze_size', methods=['POST'])
 def analyze_logo_size():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    if 'target_size' not in request.form:
-        return jsonify({'error': 'No target size specified'}), 400
-    
-    file = request.files['file']
-    target_size = float(request.form['target_size'])
-    
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file:
-        # Guardar archivo
-        filename = secure_filename(file.filename)
-        input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(input_path)
+    try:
+        print("📥 Entrando a /analyze_size")
+        print("Archivos recibidos:", request.files)
+        print("Formulario recibido:", request.form)
+
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
         
-        try:
-            # Analizar y redimensionar el logo
-            results = logo_size_analyzer.analyze_and_resize_logo(input_path, target_size)
+        if 'target_size' not in request.form:
+            return jsonify({'error': 'No target size specified'}), 400
+        
+        file = request.files['file']
+        target_size = float(request.form['target_size'])
+        
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        if file:
+            filename = secure_filename(file.filename)
+            input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(input_path)
             
-            # Extraer los resultados del tamaño solicitado
-            solicitado = results['resultados']['solicitado']
-            
-            # Convertir la imagen del tamaño solicitado a base64
-            output_filename = f'temp_solicitado_{filename}'
-            output_path = os.path.join('temp', output_filename)
-            cv2.imwrite(output_path, results['imagenes']['solicitado'])
-            
-            with open(output_path, 'rb') as img_file:
-                img_data = base64.b64encode(img_file.read()).decode('utf-8')
-            
-            # Limpiar archivo temporal
-            os.remove(output_path)
-            
-            # Preparar la respuesta en el formato que espera el frontend
-            response_data = {
-                'resized_image': f'data:image/png;base64,{img_data}',
-                'respuesta': results['respuesta'],
-                'resultados': {
-                    'original': {
-                        'width': round(solicitado['width_mm']),
-                        'height': round(solicitado['height_mm'])
-                    },
-                    'text_analysis': {
-                        'texts_below_2mm': len([h for h in solicitado['text_heights_mm'] if h < 2.0]),
-                        'min_text_height': round(min(solicitado['text_heights_mm']) if solicitado['text_heights_mm'] else 0),
-                        'avg_text_height': round(sum(solicitado['text_heights_mm']) / len(solicitado['text_heights_mm']) if solicitado['text_heights_mm'] else 0)
-                    },
-                    'alternatives': {
-                        'smaller': {
-                            'size': round(target_size - 10),
-                            'width': round(results['resultados']['chico']['width_mm']),
-                            'height': round(results['resultados']['chico']['height_mm']),
-                            'text_analysis': {
-                                'texts_below_2mm': len([h for h in results['resultados']['chico']['text_heights_mm'] if h < 2.0]),
-                                'min_text_height': round(min(results['resultados']['chico']['text_heights_mm']) if results['resultados']['chico']['text_heights_mm'] else 0),
-                                'avg_text_height': round(sum(results['resultados']['chico']['text_heights_mm']) / len(results['resultados']['chico']['text_heights_mm']) if results['resultados']['chico']['text_heights_mm'] else 0)
-                            }
+            try:
+                results = logo_size_analyzer.analyze_and_resize_logo(input_path, target_size)
+                solicitado = results['resultados']['solicitado']
+                output_filename = f'temp_solicitado_{filename}'
+                output_path = os.path.join('temp', output_filename)
+                cv2.imwrite(output_path, results['imagenes']['solicitado'])
+
+                with open(output_path, 'rb') as img_file:
+                    img_data = base64.b64encode(img_file.read()).decode('utf-8')
+
+                os.remove(output_path)
+
+                response_data = {
+                    'resized_image': f'data:image/png;base64,{img_data}',
+                    'respuesta': results['respuesta'],
+                    'resultados': {
+                        'original': {
+                            'width': round(solicitado['width_mm']),
+                            'height': round(solicitado['height_mm'])
                         },
-                        'larger': {
-                            'size': round(target_size + 10),
-                            'width': round(results['resultados']['grande']['width_mm']),
-                            'height': round(results['resultados']['grande']['height_mm']),
-                            'text_analysis': {
-                                'texts_below_2mm': len([h for h in results['resultados']['grande']['text_heights_mm'] if h < 2.0]),
-                                'min_text_height': round(min(results['resultados']['grande']['text_heights_mm']) if results['resultados']['grande']['text_heights_mm'] else 0),
-                                'avg_text_height': round(sum(results['resultados']['grande']['text_heights_mm']) / len(results['resultados']['grande']['text_heights_mm']) if results['resultados']['grande']['text_heights_mm'] else 0)
+                        'text_analysis': {
+                            'texts_below_2mm': len([h for h in solicitado['text_heights_mm'] if h < 2.0]),
+                            'min_text_height': round(min(solicitado['text_heights_mm']) if solicitado['text_heights_mm'] else 0),
+                            'avg_text_height': round(sum(solicitado['text_heights_mm']) / len(solicitado['text_heights_mm']) if solicitado['text_heights_mm'] else 0)
+                        },
+                        'alternatives': {
+                            'smaller': {
+                                'size': round(target_size - 10),
+                                'width': round(results['resultados']['chico']['width_mm']),
+                                'height': round(results['resultados']['chico']['height_mm']),
+                                'text_analysis': {
+                                    'texts_below_2mm': len([h for h in results['resultados']['chico']['text_heights_mm'] if h < 2.0]),
+                                    'min_text_height': round(min(results['resultados']['chico']['text_heights_mm']) if results['resultados']['chico']['text_heights_mm'] else 0),
+                                    'avg_text_height': round(sum(results['resultados']['chico']['text_heights_mm']) / len(results['resultados']['chico']['text_heights_mm']) if results['resultados']['chico']['text_heights_mm'] else 0)
+                                }
+                            },
+                            'larger': {
+                                'size': round(target_size + 10),
+                                'width': round(results['resultados']['grande']['width_mm']),
+                                'height': round(results['resultados']['grande']['height_mm']),
+                                'text_analysis': {
+                                    'texts_below_2mm': len([h for h in results['resultados']['grande']['text_heights_mm'] if h < 2.0]),
+                                    'min_text_height': round(min(results['resultados']['grande']['text_heights_mm']) if results['resultados']['grande']['text_heights_mm'] else 0),
+                                    'avg_text_height': round(sum(results['resultados']['grande']['text_heights_mm']) / len(results['resultados']['grande']['text_heights_mm']) if results['resultados']['grande']['text_heights_mm'] else 0)
+                                }
                             }
                         }
                     }
                 }
-            }
+
+                return jsonify(response_data)
             
-            return jsonify(response_data)
-            
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
             
         finally:
             # Limpiar el archivo de entrada
