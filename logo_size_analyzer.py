@@ -409,10 +409,10 @@ class LogoSizeAnalyzer:
 
                     # Validación segura de imagen
                     debug_img = resultado.get('debug_image')
-                if isinstance(debug_img, np.ndarray):
+                    if isinstance(debug_img, np.ndarray):
                         imagenes[nombre] = debug_img
                     else:
-                    print(f"⚠️ No se generó imagen para tamaño {nombre}")
+                        print(f"⚠️ No se generó imagen para tamaño {nombre}")
                 except Exception as e:
                     print(f"⚠️ Error procesando tamaño {nombre}: {str(e)}")
                     continue
