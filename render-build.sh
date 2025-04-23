@@ -5,8 +5,8 @@ set -o errexit
 set -o nounset
 
 # Instalar Tesseract
-apt-get update
-apt-get install -y tesseract-ocr
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr
 
 # Instalar dependencias de Python
 pip install -r requirements.txt
