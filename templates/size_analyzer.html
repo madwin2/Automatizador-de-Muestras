@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Tamaño de Logos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .result-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .image-container {
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Analizador de Tamaño de Logos</h1>
+        
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <form id="uploadForm" class="card p-4">
+                    <div class="mb-3">
+                        <label for="logoFile" class="form-label">Seleccionar Logo</label>
+                        <input type="file" class="form-control" id="logoFile" accept="image/*" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="targetSize" class="form-label">Tamaño Objetivo (mm)</label>
+                        <input type="number" class="form-control" id="targetSize" required min="1" step="0.1">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Analizar Logo</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="resultContainer" class="result-container">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="image-container">
+                        <h4>Logo Redimensionado</h4>
+                        <img id="resizedImage" src="" alt="Logo redimensionado">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title">Resultados del Análisis</h4>
+                            <div id="analysisResults"></div>
+                            <div class="mt-3">
+                                <h5>Tamaños Alternativos Sugeridos:</h5>
+                                <div id="alternativeSizes"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('logoFile');
+            const targetSize = document.getElementById('targetSize').value;
+            
+            formData.append('file', fileInput.files[0]);
+            formData.append('target_size', targetSize);
+            
+            try {
+                const response = await fetch('/analyze_size', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                // Mostrar resultados
+                document.getElementById('resultContainer').style.display = 'block';
+                document.getElementById('resizedImage').src = data.resized_image;
+                
+                // Mostrar análisis
+                const analysisHtml = `
+                    <p><strong>Tamaño Original:</strong> ${data.original_size_mm.width}mm x ${data.original_size_mm.height}mm</p>
+                    <p><strong>Tamaño Redimensionado:</strong> ${data.resized_dimensions_mm.width}mm x ${data.resized_dimensions_mm.height}mm</p>
+                    <p><strong>Análisis de Texto:</strong></p>
+                    <ul>
+                        <li>Textos menores a 2mm: ${data.text_analysis.texts_below_2mm}</li>
+                        <li>Altura mínima de texto: ${data.text_analysis.min_text_height_mm}mm</li>
+                        <li>Altura promedio de texto: ${data.text_analysis.avg_text_height_mm}mm</li>
+                    </ul>
+                `;
+                document.getElementById('analysisResults').innerHTML = analysisHtml;
+                
+                // Mostrar tamaños alternativos
+                const alternativesHtml = `
+                    <ul>
+                        <li>Tamaño más pequeño sugerido: ${data.alternative_sizes.smaller}mm</li>
+                        <li>Tamaño más grande sugerido: ${data.alternative_sizes.larger}mm</li>
+                    </ul>
+                `;
+                document.getElementById('alternativeSizes').innerHTML = alternativesHtml;
+                
+            } catch (error) {
+                alert('Error al procesar el logo: ' + error);
+            }
+        });
+    </script>
+</body>
+</html> 

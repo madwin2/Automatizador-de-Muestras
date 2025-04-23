@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Logo Processor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        .light {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --card-bg: #ffffff;
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        .dark {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --border-color: #2d3748;
+            --card-bg: #1e293b;
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+            transition: all 0.3s ease;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(79, 70, 229, 0.1) 0%, transparent 20%);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            padding: 0.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: var(--glass-shadow);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .header {
+            background: var(--card-bg);
+            padding: 2rem;
+            box-shadow: var(--glass-shadow);
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--card-gradient);
+            pointer-events: none;
+        }
+
+        .header h1 {
+            max-width: 1200px;
+            margin: 0 auto;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .box {
+            background: var(--card-bg);
+            border-radius: 1.5rem;
+            box-shadow: var(--glass-shadow);
+            padding: 2rem;
+            transition: all 0.3s ease;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--card-gradient);
+            pointer-events: none;
+        }
+
+        .box:hover {
+            transform: translateY(-5px);
+        }
+
+        .box h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            position: relative;
+        }
+
+        .box h2 i {
+            font-size: 1.25rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .preview {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed var(--border-color);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            position: relative;
+            transition: all 0.3s ease;
+            background: var(--bg-secondary);
+            overflow: hidden;
+        }
+
+        .preview::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--card-gradient);
+            pointer-events: none;
+        }
+
+        .preview img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .preview img:hover {
+            transform: scale(1.05);
+        }
+
+        #dropZone {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #dropZone.dragover {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3.5rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 140px;
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(255,255,255,0.1), transparent);
+            transition: transform 0.3s ease;
+            transform: translateY(-100%);
+        }
+
+        button:hover::before {
+            transform: translateY(0);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        button.mockup-btn {
+            background: var(--success-gradient);
+        }
+
+        button.mockup-btn:hover {
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .metrics {
+            margin-top: 1.5rem;
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        .step {
+            padding: 1.25rem;
+            background: var(--card-bg);
+            border-left: 4px solid #6366f1;
+            margin-bottom: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--card-gradient);
+            pointer-events: none;
+        }
+
+        .loading {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 10px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tech-dots {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .tech-dots::before,
+        .tech-dots::after {
+            content: '';
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .tech-dots::before {
+            top: 20%;
+            left: 10%;
+        }
+
+        .tech-dots::after {
+            bottom: 30%;
+            right: 15%;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(2); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            
+            .box {
+                min-width: unset;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .results-container {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .analysis-results {
+            font-size: 0.9rem;
+        }
+
+        .analysis-results p {
+            margin-bottom: 0.5rem;
+        }
+
+        .analysis-results ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+
+        .analysis-results li {
+            margin-bottom: 0.25rem;
+        }
+
+        .text-analysis, .size-suggestions {
+            margin-top: 1rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .image-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .warning-text {
+            color: #f0ad4e;
+        }
+
+        .success-text {
+            color: #5cb85c;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <div class="header">
+        <div class="tech-dots"></div>
+        <h1>AI Logo Processor</h1>
+    </div>
+    
+    <div class="container">
+        <div class="box">
+            <div class="tech-dots"></div>
+            <h2><i class="fas fa-upload"></i> Logo Original</h2>
+            <div id="dropZone" class="preview">
+                <div id="uploadText">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <p>Arrastra tu logo aquí o haz clic para seleccionar</p>
+                    <input type="file" id="fileInput" style="display: none" accept="image/*">
+                </div>
+                <img id="originalPreview" style="display: none">
+            </div>
+            <button onclick="document.getElementById('fileInput').click()">
+                <i class="fas fa-file-upload"></i>
+                Seleccionar Archivo
+            </button>
+        </div>
+
+        <div class="box">
+            <div class="tech-dots"></div>
+            <h2><i class="fas fa-wand-magic-sparkles"></i> Logo Procesado</h2>
+            <div class="preview">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Procesando con IA...
+                </div>
+                <img id="processedPreview">
+            </div>
+            <div id="metrics" class="metrics">
+                Los resultados se mostrarán aquí...
+            </div>
+            <div class="button-group">
+                <button class="mockup-btn" onclick="aplicarMockup('cuero')">
+                    <i class="fas fa-layer-group"></i>
+                    Mockup Cuero
+                </button>
+                <button class="mockup-btn" onclick="aplicarMockup('madera')">
+                    <i class="fas fa-tree"></i>
+                    Mockup Madera
+                </button>
+            </div>
+        </div>
+
+        <div class="box" id="mockupBox" style="display: none;">
+            <div class="tech-dots"></div>
+            <h2><i class="fas fa-vr-cardboard"></i> Mockup Final</h2>
+            <div class="preview">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Generando mockup...
+                </div>
+                <img id="mockupPreview">
+            </div>
+        </div>
+
+        <div class="box" id="sizeAnalysisBox">
+            <h2><i class="fas fa-ruler"></i> Análisis de Tamaño</h2>
+            <div class="preview">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Analizando tamaño...
+                </div>
+                <img id="sizePreview" src="" alt="Logo con medidas">
+            </div>
+            <div class="form-group">
+                <label for="targetSize">Tamaño Objetivo (mm):</label>
+                <input type="number" id="targetSize" class="form-control" value="50" min="1" step="0.1">
+            </div>
+            <div id="sizeResults" class="results-container">
+                Los resultados se mostrarán aquí...
+            </div>
+            <div class="image-container">
+                <img id="resizedImage" src="" alt="Logo redimensionado" style="display: none;">
+            </div>
+            <button onclick="analyzeSizeAndProceed()" class="btn btn-primary">
+                <i class="fas fa-check"></i> Confirmar y Continuar
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Funciones globales
+        function showLoading(loadingDiv) {
+            if (loadingDiv) {
+                loadingDiv.style.display = 'block';
+            }
+        }
+
+        function hideLoading(loadingDiv) {
+            if (loadingDiv) {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        function safeSetText(element, text) {
+            if (element && typeof text === 'string') {
+                // Crear un nodo de texto seguro
+                const textNode = document.createTextNode(text);
+                // Limpiar el elemento
+                while (element.firstChild) {
+                    element.removeChild(element.firstChild);
+                }
+                // Agregar el nuevo texto
+                element.appendChild(textNode);
+            }
+        }
+
+        function safeSetHTML(element, html) {
+            if (element && typeof html === 'string') {
+                element.innerHTML = html;
+            }
+        }
+
+        function createResultElement(text, type) {
+            const div = document.createElement('div');
+            div.className = type === 'error' ? 'error-text' : 'analysis-results';
+            safeSetText(div, text);
+            return div;
+        }
+
+        async function analyzeSizeAndProceed() {
+            const elements = {
+                processedPreview: document.getElementById('processedPreview'),
+                targetSize: document.getElementById('targetSize'),
+                loadingDiv: document.querySelector('#sizeAnalysisBox .loading'),
+                mockupBox: document.getElementById('mockupBox'),
+                sizeResults: document.getElementById('sizeResults'),
+                resizedImage: document.getElementById('resizedImage')
+            };
+
+            if (!elements.processedPreview?.src || !elements.targetSize?.value) {
+                alert('Por favor, asegúrate de procesar un logo y especificar un tamaño objetivo');
+                return;
+            }
+
+            try {
+                showLoading(elements.loadingDiv);
+
+                // Limpiar resultados anteriores
+                if (elements.sizeResults) {
+                    elements.sizeResults.innerHTML = '';
+                }
+
+                // Preparar y enviar datos
+                const formData = new FormData();
+                const response = await fetch(elements.processedPreview.src);
+                const blob = await response.blob();
+                formData.append('file', blob, 'logo.png');
+                formData.append('target_size', elements.targetSize.value);
+
+                const analysisResponse = await fetch('/analyze_size', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!analysisResponse.ok) {
+                    throw new Error(`Error HTTP: ${analysisResponse.status}`);
+                }
+
+                const data = await analysisResponse.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Crear y mostrar resultados
+                if (elements.sizeResults && data.respuesta) {
+                    const resultsContainer = document.createElement('div');
+                    resultsContainer.className = 'analysis-results';
+
+                    // Dividir la respuesta en líneas y procesarlas
+                    const lines = data.respuesta.split('\n');
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+
+                        const paragraph = document.createElement('p');
+                        const text = document.createTextNode(line);
+                        paragraph.appendChild(text);
+                        resultsContainer.appendChild(paragraph);
+                    }
+
+                    // Agregar los resultados al DOM
+                    elements.sizeResults.appendChild(resultsContainer);
+                }
+
+                // Actualizar imagen si está disponible
+                if (elements.resizedImage && data.resized_image) {
+                    const img = new Image();
+                    img.onload = function() {
+                        elements.resizedImage.src = data.resized_image;
+                        elements.resizedImage.style.display = 'block';
+                    };
+                    img.src = data.resized_image;
+                }
+
+                // Mostrar mockup box
+                if (elements.mockupBox) {
+                    elements.mockupBox.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error('Error en el análisis:', error);
+                
+                if (elements.sizeResults) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-text';
+                    const errorText = document.createTextNode(
+                        'Error: ' + (error.message || 'Error desconocido al analizar el logo')
+                    );
+                    errorDiv.appendChild(errorText);
+                    elements.sizeResults.innerHTML = '';
+                    elements.sizeResults.appendChild(errorDiv);
+                }
+            } finally {
+                hideLoading(elements.loadingDiv);
+            }
+        }
+
+        // Inicialización cuando el DOM está listo
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = {
+                dropZone: document.getElementById('dropZone'),
+                fileInput: document.getElementById('fileInput'),
+                uploadText: document.getElementById('uploadText'),
+                originalPreview: document.getElementById('originalPreview'),
+                processedPreview: document.getElementById('processedPreview'),
+                mockupPreview: document.getElementById('mockupPreview'),
+                metricsDiv: document.getElementById('metrics'),
+                loadingDivs: document.querySelectorAll('.loading'),
+                sizeAnalysisBox: document.getElementById('sizeAnalysisBox'),
+                mockupBox: document.getElementById('mockupBox'),
+                sizeResults: document.getElementById('sizeResults'),
+                targetSize: document.getElementById('targetSize'),
+                resizedImage: document.getElementById('resizedImage')
+            };
+
+            // Event listeners para drag and drop
+            elements.dropZone?.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.dropZone.classList.add('dragover');
+            });
+
+            elements.dropZone?.addEventListener('dragleave', () => {
+                elements.dropZone.classList.remove('dragover');
+            });
+
+            elements.dropZone?.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.dropZone.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && elements.fileInput) {
+                    elements.fileInput.files = e.dataTransfer.files;
+                    processLogo(elements);
+                }
+            });
+
+            elements.dropZone?.addEventListener('click', () => {
+                elements.fileInput?.click();
+            });
+
+            elements.fileInput?.addEventListener('change', (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        if (elements.originalPreview && elements.uploadText) {
+                            elements.originalPreview.src = e.target?.result;
+                            elements.originalPreview.style.display = 'block';
+                            elements.uploadText.style.display = 'none';
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                    processLogo(elements);
+                }
+            });
+        });
+
+        async function processLogo(elements) {
+            const file = elements.fileInput?.files?.[0];
+            
+            if (!file) {
+                alert('Por favor selecciona un archivo');
+                return;
+            }
+            
+            showLoading(elements.loadingDivs?.[0]);
+            if (elements.metricsDiv) {
+                elements.metricsDiv.innerHTML = '<p>Procesando imagen...</p>';
+            }
+            if (elements.processedPreview) {
+                elements.processedPreview.src = '';
+            }
+            if (elements.mockupPreview) {
+                elements.mockupPreview.src = '';
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                hideLoading(elements.loadingDivs?.[0]);
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                if (elements.processedPreview) {
+                    elements.processedPreview.src = data.processed_image;
+                    elements.processedPreview.style.display = 'block';
+                }
+                
+                updateProcessingMetrics(data, elements);
+                
+                if (elements.sizeAnalysisBox) {
+                    elements.sizeAnalysisBox.style.display = 'block';
+                }
+                if (elements.sizePreview) {
+                    elements.sizePreview.src = data.processed_image;
+                }
+                if (elements.mockupBox) {
+                    elements.mockupBox.style.display = 'none';
+                }
+                
+            } catch (error) {
+                hideLoading(elements.loadingDivs?.[0]);
+                alert('Error al procesar el logo: ' + error);
+            }
+        }
+
+        function updateProcessingMetrics(data, elements) {
+            if (!elements.metricsDiv) return;
+
+            let metricsHtml = '<div class="metrics">';
+            if (data.results.usar_original) {
+                metricsHtml += `
+                    <div class="step">
+                        <strong>Análisis Completado</strong><br>
+                        El logo no necesita ajustes.<br>
+                        - Fondo blanco detectado<br>
+                        - Logo en negro<br>
+                        - Buena calidad y nitidez
+                    </div>
+                `;
+            } else if (data.results.pasos?.length > 0) {
+                data.results.pasos.forEach(result => {
+                    metricsHtml += `
+                        <div class="step">
+                            <strong>Paso ${result.paso}: ${result.herramienta}</strong><br>
+                            Puntuación: ${(result.puntuacion * 100).toFixed(2)}%<br>
+                            ${result.parametros_finales ? `Parámetros: ${JSON.stringify(result.parametros_finales)}` : ''}
+                        </div>
+                    `;
+                });
+            }
+            metricsHtml += '</div>';
+            elements.metricsDiv.innerHTML = metricsHtml;
+        }
+
+        async function aplicarMockup(tipo) {
+            const processedPreview = document.getElementById('processedPreview');
+            const mockupBox = document.getElementById('mockupBox');
+            const mockupPreview = document.getElementById('mockupPreview');
+            const loadingDivs = document.querySelectorAll('.loading');
+            
+            if (!processedPreview.src) {
+                alert('Por favor, procesa un logo primero');
+                return;
+            }
+            
+            showLoading(loadingDivs[2]);
+            mockupBox.style.display = 'block';
+            mockupPreview.style.display = 'none';
+            
+            try {
+                const response = await fetch('/apply_mockup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        processed_image: processedPreview.src,
+                        tipo: tipo
+                    })
+                });
+                
+                const data = await response.json();
+                hideLoading(loadingDivs[2]);
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                mockupPreview.src = data.mockup_image;
+                mockupPreview.style.display = 'block';
+                
+            } catch (error) {
+                hideLoading(loadingDivs[2]);
+                alert('Error al generar el mockup: ' + error);
+            }
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeToggle = document.querySelector('.theme-toggle i');
+            
+            if (html.classList.contains('light')) {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                themeToggle.classList.remove('fa-moon');
+                themeToggle.classList.add('fa-sun');
+            } else {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                themeToggle.classList.remove('fa-sun');
+                themeToggle.classList.add('fa-moon');
+            }
+        }
+    </script>
+</body>
+</html> 
