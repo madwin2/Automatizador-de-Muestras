@@ -249,127 +249,241 @@ class LogoSizeAnalyzer:
         # Verificar que la imagen sea válida
         if not isinstance(image, np.ndarray):
             raise ValueError("La imagen debe ser un array de numpy")
-
-        # Detectar límites del logo
+        
+        # Asegurarse de que la imagen esté en formato BGR
+        if len(image.shape) == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        elif image.shape[2] == 4:
+            image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+        
+        # Detectar los límites del logo
         x, y, w, h = self._detect_logo_boundaries(image)
         
-        # Calcular dimensiones en milímetros
-        width_mm = self._pixels_to_mm(w)
-        height_mm = self._pixels_to_mm(h)
+        # Calcular dimensiones actuales en milímetros
+        current_width_mm = self._pixels_to_mm(w)
+        current_height_mm = self._pixels_to_mm(h)
         
-        # Extraer la región del logo
+        # Calcular factor de escala basado en el tamaño objetivo
+        scale_factor = target_size_mm / max(current_width_mm, current_height_mm)
+        
+        # Extraer y redimensionar la región del logo
         logo_region = image[y:y+h, x:x+w]
+        new_width = int(w * scale_factor)
+        new_height = int(h * scale_factor)
+        resized_logo = cv2.resize(logo_region, (new_width, new_height), 
+                                interpolation=cv2.INTER_LANCZOS4)
         
-        # Detectar alturas de texto
-        text_heights = self._detect_text_heights(logo_region)
+        # Asegurarse de que la imagen esté en el formato correcto para OCR
+        if resized_logo.dtype != np.uint8:
+            resized_logo = (resized_logo * 255).astype(np.uint8)
+        
+        # Hacer una copia para OCR y debug
+        img_for_ocr = resized_logo.copy()
+        debug_image = resized_logo.copy()
+        
+        # Convertir a escala de grises
+        if len(img_for_ocr.shape) == 3:
+            gray = cv2.cvtColor(img_for_ocr, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img_for_ocr.copy()
+        
+        # Mejorar el contraste
+        if np.mean(gray) > 127:
+            gray = cv2.bitwise_not(gray)
+        
+        # Aplicar umbral adaptativo con diferentes parámetros
+        binary1 = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, 11, 2
+        )
+        
+        # Segundo umbral con diferentes parámetros
+        binary2 = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+            cv2.THRESH_BINARY, 15, 5
+        )
+        
+        # Método Otsu
+        _, binary3 = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # Combinar los resultados
+        binary = cv2.bitwise_and(binary1, binary2)
+        binary = cv2.bitwise_and(binary, binary3)
+        
+        # Aplicar operaciones morfológicas para limpiar
+        kernel = np.ones((2,2), np.uint8)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        
+        # Detectar texto con Tesseract usando diferentes configuraciones
+        configs = [
+            r'--oem 3 --psm 11',  # Sparse text
+            r'--oem 3 --psm 6',   # Uniform block of text
+            r'--oem 3 --psm 3'    # Fully automatic page segmentation
+        ]
+        
+        text_heights = []
+        detected_boxes = set()  # Para evitar duplicados
+        
+        # Dibujar caja verde alrededor del logo completo
+        cv2.rectangle(debug_image, (0, 0), (new_width-1, new_height-1), (0, 255, 0), 2)
+        
+        # Procesar con cada configuración
+        for config in configs:
+            text_data = pytesseract.image_to_data(binary, output_type=pytesseract.Output.DICT, config=config)
+            
+            for i in range(len(text_data['text'])):
+                if text_data['text'][i].strip() and text_data['conf'][i] > 20:  # Bajamos el umbral de confianza
+                    x = text_data['left'][i]
+                    y = text_data['top'][i]
+                    w = text_data['width'][i]
+                    h = text_data['height'][i]
+                    
+                    # Crear una clave única para esta caja
+                    box_key = f"{x},{y},{w},{h}"
+                    
+                    # Solo procesar si no hemos visto esta caja antes
+                    if box_key not in detected_boxes:
+                        detected_boxes.add(box_key)
+                        
+                        # Agregar altura a la lista
+                        text_heights.append(h)
+                        
+                        # Dibujar caja azul alrededor del texto
+                        cv2.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 1)
+                        
+                        # Agregar el texto detectado
+                        cv2.putText(debug_image, text_data['text'][i], 
+                                  (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 
+                                  0.3, (255, 0, 0), 1)
+        
+        # Convertir alturas de texto de píxeles a milímetros
+        text_heights_mm = [self._pixels_to_mm(h) for h in text_heights]
         
         return {
-            'width_mm': width_mm,
-            'height_mm': height_mm,
-            'text_heights_mm': text_heights,
-            'box': (x, y, w, h)
+            'width_mm': self._pixels_to_mm(new_width),
+            'height_mm': self._pixels_to_mm(new_height),
+            'text_heights_mm': text_heights_mm,
+            'debug_image': debug_image,
+            'scale_factor': scale_factor
         }
 
     def analyze_and_resize_logo(self, image_path: str, target_size_mm: float) -> Dict:
-        """
-        Analiza y redimensiona un logo para un tamaño objetivo.
-        
-        Args:
-            image_path: Ruta al archivo de imagen
-            target_size_mm: Tamaño objetivo en milímetros
-            
-        Returns:
-            Dict con los resultados del análisis y las imágenes redimensionadas
-        """
+        """Analiza y redimensiona el logo para diferentes tamaños."""
         try:
-            # Cargar imagen
-            image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-            if image is None:
+            # Detectar dimensiones actuales del logo
+            img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+            if img is None:
                 raise ValueError(f"No se pudo cargar la imagen: {image_path}")
             
-            # Asegurar que la imagen tenga el formato correcto
-            if len(image.shape) == 2:  # Si es escala de grises
-                image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGRA)
-            elif len(image.shape) == 3 and image.shape[2] == 3:  # Si es BGR
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
+            # Verificar que img sea un array numpy válido
+            if not isinstance(img, np.ndarray):
+                raise ValueError("La imagen debe ser un array de numpy")
             
-            # Calcular factores de escala para cada variante
-            resultados = {}
-            variantes = {
-                'chico': target_size_mm - 10,
+            # Asegurar que la imagen esté en formato BGR y uint8
+            if img.dtype != np.uint8:
+                img = (img * 255).astype(np.uint8)
+            
+            if len(img.shape) == 2:  # Imagen en escala de grises
+                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            elif img.shape[2] == 4:  # Imagen BGRA
+                img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+            elif img.shape[2] != 3:  # Otro formato no soportado
+                raise ValueError(f"Formato de imagen no soportado: {img.shape}")
+            
+            # Analizar los tres tamaños
+            tamaños = {
                 'solicitado': target_size_mm,
+                'chico': target_size_mm - 10,
                 'grande': target_size_mm + 10
             }
             
+            resultados = {}
             imagenes = {}
-            for nombre, size_mm in variantes.items():
-                # Calcular factor de escala
-                scale_factor = size_mm / target_size_mm
-                
-                # Redimensionar imagen
-                new_width = int(image.shape[1] * scale_factor)
-                new_height = int(image.shape[0] * scale_factor)
-                resized = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-                
-                # Analizar variante
-                resultados[nombre] = self._analyze_size_variant(resized, size_mm)
-                imagenes[nombre] = resized
             
-            # Generar respuesta basada en los resultados
-            respuesta = self._generar_respuesta(resultados['solicitado'], target_size_mm)
+            for nombre, tamaño in tamaños.items():
+                try:
+                    # Procesar variante de tamaño
+                    resultado = self._analyze_size_variant(img.copy(), tamaño)
+                    resultados[nombre] = resultado
+                    
+                    # Verificar y preparar la imagen
+                    if not isinstance(resultado['debug_image'], np.ndarray):
+                        print(f"Advertencia: La imagen para tamaño {nombre} no es un array numpy válido")
+                        continue
+                    
+                    # Asegurar formato BGR y uint8
+                    if resultado['debug_image'].dtype != np.uint8:
+                        resultado['debug_image'] = np.clip(resultado['debug_image'] * 255, 0, 255).astype(np.uint8)
+                    
+                    if len(resultado['debug_image'].shape) == 2:
+                        resultado['debug_image'] = cv2.cvtColor(resultado['debug_image'], cv2.COLOR_GRAY2BGR)
+                    elif resultado['debug_image'].shape[2] == 4:
+                        resultado['debug_image'] = cv2.cvtColor(resultado['debug_image'], cv2.COLOR_BGRA2BGR)
+                    elif resultado['debug_image'].shape[2] != 3:
+                        print(f"Advertencia: Formato de imagen no soportado para tamaño {nombre}")
+                        continue
+                    
+                    # Almacenar la imagen en memoria
+                    imagenes[nombre] = resultado['debug_image']
+                    
+                except Exception as e:
+                    print(f"Error procesando tamaño {nombre}: {str(e)}")
+                    continue
             
+            if not resultados:
+                raise ValueError("No se pudo procesar ningún tamaño del logo")
+            
+            # Formatear respuesta detallada
+            respuesta = "Tamaño Original\n\n"
+            respuesta += f"Ancho: {round(resultados['solicitado']['width_mm'])}mm\n"
+            respuesta += f"Alto: {round(resultados['solicitado']['height_mm'])}mm\n\n\n"
+
+            respuesta += "Análisis de Texto\n\n"
+            if resultados['solicitado']['text_heights_mm']:
+                min_height = round(min(resultados['solicitado']['text_heights_mm']))
+                avg_height = round(sum(resultados['solicitado']['text_heights_mm'])/len(resultados['solicitado']['text_heights_mm']))
+                textos_pequeños = [h for h in resultados['solicitado']['text_heights_mm'] if h < 2.0]
+                respuesta += f"Textos menores a 2mm: {len(textos_pequeños)}\n\n"
+                respuesta += f"Altura mínima: {min_height}mm\n\n"
+                respuesta += f"Altura promedio: {avg_height}mm\n\n\n"
+
+            respuesta += "Tamaños Sugeridos\n\n\n"
+            
+            # Tamaño más pequeño
+            respuesta += f"1) {round(tamaños['chico'])}mm\n\n"
+            chico = resultados['chico']
+            respuesta += f"Ancho: {round(chico['width_mm'])}mm\n"
+            respuesta += f"Alto: {round(chico['height_mm'])}mm\n\n"
+            if chico['text_heights_mm']:
+                min_height = round(min(chico['text_heights_mm']))
+                avg_height = round(sum(chico['text_heights_mm'])/len(chico['text_heights_mm']))
+                textos_pequeños = [h for h in chico['text_heights_mm'] if h < 2.0]
+                respuesta += "Análisis de Texto:\n\n"
+                respuesta += f"Textos < 2mm: {len(textos_pequeños)}\n\n"
+                respuesta += f"Altura mín: {min_height}mm\n\n"
+                respuesta += f"Altura prom: {avg_height}mm\n\n\n"
+
+            # Tamaño más grande
+            respuesta += f"2) {round(tamaños['grande'])}mm\n\n"
+            grande = resultados['grande']
+            respuesta += f"Ancho: {round(grande['width_mm'])}mm\n"
+            respuesta += f"Alto: {round(grande['height_mm'])}mm\n\n"
+            if grande['text_heights_mm']:
+                min_height = round(min(grande['text_heights_mm']))
+                avg_height = round(sum(grande['text_heights_mm'])/len(grande['text_heights_mm']))
+                textos_pequeños = [h for h in grande['text_heights_mm'] if h < 2.0]
+                respuesta += "Análisis de Texto:\n\n"
+                respuesta += f"Textos < 2mm: {len(textos_pequeños)}\n\n"
+                respuesta += f"Altura mín: {min_height}mm\n\n"
+                respuesta += f"Altura prom: {avg_height}mm"
+
             return {
-                'resultados': resultados,
+                'respuesta': respuesta,
                 'imagenes': imagenes,
-                'respuesta': respuesta
+                'resultados': resultados
             }
             
         except Exception as e:
-            raise ValueError(f"Error al analizar el logo: {str(e)}")
-
-    def _generar_respuesta(self, resultados: Dict, target_size_mm: float) -> str:
-        """Genera una respuesta en lenguaje natural basada en los resultados."""
-        try:
-            # Extraer métricas clave
-            width_mm = resultados['width_mm']
-            height_mm = resultados['height_mm']
-            text_heights = resultados['text_heights_mm']
-            
-            # Inicializar respuesta
-            respuesta = []
-            
-            # Analizar dimensiones generales
-            respuesta.append(f"El logo mide {width_mm:.1f}mm de ancho por {height_mm:.1f}mm de alto.")
-            
-            # Analizar textos
-            if text_heights:
-                min_text = min(text_heights)
-                avg_text = sum(text_heights) / len(text_heights)
-                texts_below_2mm = len([h for h in text_heights if h < 2.0])
-                
-                if texts_below_2mm > 0:
-                    respuesta.append(f"⚠️ Se detectaron {texts_below_2mm} elementos de texto menores a 2mm.")
-                    if min_text < 1.0:
-                        respuesta.append("❌ Algunos textos son demasiado pequeños y podrían ser ilegibles.")
-                    else:
-                        respuesta.append("⚠️ Algunos textos podrían ser difíciles de leer.")
-                else:
-                    respuesta.append("✅ Todos los textos tienen un tamaño adecuado.")
-                
-                respuesta.append(f"El texto más pequeño mide {min_text:.1f}mm y el promedio es {avg_text:.1f}mm.")
-            else:
-                respuesta.append("No se detectaron elementos de texto en el logo.")
-            
-            # Recomendaciones
-            if width_mm > target_size_mm * 1.2 or height_mm > target_size_mm * 1.2:
-                respuesta.append("📏 El logo es significativamente más grande que el tamaño solicitado.")
-            elif width_mm < target_size_mm * 0.8 or height_mm < target_size_mm * 0.8:
-                respuesta.append("📏 El logo es significativamente más pequeño que el tamaño solicitado.")
-            
-            if text_heights and min_text < 2.0:
-                respuesta.append("💡 Considera aumentar el tamaño para mejorar la legibilidad de los textos pequeños.")
-            
-            return " ".join(respuesta)
-            
-        except Exception as e:
-            return f"Error al generar respuesta: {str(e)}"
+            print(f"Error en analyze_and_resize_logo: {str(e)}")
+            raise 
