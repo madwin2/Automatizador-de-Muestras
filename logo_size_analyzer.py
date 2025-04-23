@@ -457,12 +457,12 @@ class LogoSizeAnalyzer:
             if 'text_heights_mm' in resultados['solicitado']:
                 heights = resultados['solicitado']['text_heights_mm']
                 if heights:
-                min_height = round(min(resultados['solicitado']['text_heights_mm']))
-                avg_height = round(sum(resultados['solicitado']['text_heights_mm'])/len(resultados['solicitado']['text_heights_mm']))
-                textos_pequeños = [h for h in resultados['solicitado']['text_heights_mm'] if h < 2.0]
-                respuesta += f"Textos menores a 2mm: {len(textos_pequeños)}\n\n"
-                respuesta += f"Altura mínima: {min_height}mm\n\n"
-                respuesta += f"Altura promedio: {avg_height}mm\n\n\n"
+                    min_height = round(min(resultados['solicitado']['text_heights_mm']))
+                    avg_height = round(sum(resultados['solicitado']['text_heights_mm'])/len(resultados['solicitado']['text_heights_mm']))
+                    textos_pequeños = [h for h in resultados['solicitado']['text_heights_mm'] if h < 2.0]
+                    respuesta += f"Textos menores a 2mm: {len(textos_pequeños)}\n\n"
+                    respuesta += f"Altura mínima: {min_height}mm\n\n"
+                    respuesta += f"Altura promedio: {avg_height}mm\n\n\n"
 
             respuesta += "Tamaños Sugeridos\n\n\n"
             
