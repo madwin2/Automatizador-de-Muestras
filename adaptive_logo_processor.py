@@ -4,7 +4,7 @@ import base64
 from logo_processor import LogoProcessor
 from logo_analyzer import LogoAnalyzer
 from adaptive_quality_validator import AdaptiveQualityValidator
-from openai import OpenAI
+import openai
 import os
 import json
 from typing import Dict, Any, List, Tuple
@@ -12,7 +12,8 @@ from typing import Dict, Any, List, Tuple
 class AdaptiveLogoProcessor(LogoProcessor):
     def __init__(self, api_key: str):
         super().__init__()
-        self.client = OpenAI(api_key=api_key)
+        openai.api_key = api_key
+        self.client = openai
         self.analyzer = LogoAnalyzer()
         self.validator = AdaptiveQualityValidator()
         
