@@ -1,0 +1,32 @@
+{
+    "pasos": [
+        {
+            "herramienta": "eliminar_fondo",
+            "parametros": {}
+        },
+        {
+            "herramienta": "ajustar_contraste",
+            "parametros": {
+                "factor": 1.3
+            }
+        },
+        {
+            "herramienta": "eliminar_ruido",
+            "parametros": {
+                "kernel_size": 2
+            }
+        },
+        {
+            "herramienta": "engrosar_trazos",
+            "parametros": {
+                "pixels": 1
+            }
+        },
+        {
+            "herramienta": "binarizar",
+            "parametros": {
+                "threshold": 140
+            }
+        }
+    ]
+} 
