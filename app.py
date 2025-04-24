@@ -8,6 +8,14 @@ from logo_background_analyzer import analyze_and_process_logo
 import json
 import base64
 import cv2
+import subprocess
+
+try:
+    tesseract_path = subprocess.check_output(['which', 'tesseract']).decode().strip()
+    print(f"✅ Tesseract encontrado en: {tesseract_path}")
+except Exception as e:
+    print(f"❌ No se encontró Tesseract: {e}")
+
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
