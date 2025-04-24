@@ -253,10 +253,5 @@ def analyze_logo_size():
             os.remove(input_path)
 
 if __name__ == '__main__':
-    # Asegurar que existan los directorios necesarios
-    os.makedirs('uploads', exist_ok=True)
-    os.makedirs('temp', exist_ok=True)
-    os.makedirs('mockups', exist_ok=True)
-    
-    # Iniciar el servidor
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=10000)
+
