@@ -180,6 +180,8 @@ def analyze_logo_size():
 
             # AHORA correctamente indentado dentro del if
             results = logo_size_analyzer.analyze_and_resize_logo(input_path, target_size)
+            if 'solicitado' not in results['resultados']:
+                return jsonify({'error': "No se pudo procesar el tamaño solicitado"}), 500
             solicitado = results['resultados']['solicitado']
             output_filename = f'temp_solicitado_{filename}'
             output_path = os.path.join('temp', output_filename)
