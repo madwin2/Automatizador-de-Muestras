@@ -4,6 +4,12 @@ from PIL import Image, ImageFont
 import pytesseract
 from typing import Tuple, Dict, List, Any
 import os
+import platform
+
+if platform.system() == "Windows":
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# En Linux (como Render), no se necesita configurar nada, solo que esté instalado.
+
 
 class LogoSizeAnalyzer:
     def __init__(self):
