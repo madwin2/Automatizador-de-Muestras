@@ -9,7 +9,9 @@ import platform
 if platform.system() == "Windows":
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # En Linux (como Render), no se necesita configurar nada, solo que esté instalado.
-
+else:
+    # En Render (Linux), lo especificamos manualmente también:
+    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
 class LogoSizeAnalyzer:
     def __init__(self):
