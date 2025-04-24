@@ -178,7 +178,7 @@ def analyze_logo_size():
             input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(input_path)
             
-            
+            try:
                 results = logo_size_analyzer.analyze_and_resize_logo(input_path, target_size)
                 solicitado = results['resultados']['solicitado']
                 output_filename = f'temp_solicitado_{filename}'
